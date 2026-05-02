@@ -1,0 +1,1 @@
+D:\work\android\taekwondo_kick_speedometer_android_app\opencv\libcxx_helper\CMakeLists.txt

@@ -1,0 +1,3 @@
+D:/work/android/taekwondo_kick_speedometer_android_app/opencv/.cxx/Debug/5q49zl6z/x86/CMakeFiles/opencv_jni_shared.dir
+D:/work/android/taekwondo_kick_speedometer_android_app/opencv/.cxx/Debug/5q49zl6z/x86/CMakeFiles/edit_cache.dir
+D:/work/android/taekwondo_kick_speedometer_android_app/opencv/.cxx/Debug/5q49zl6z/x86/CMakeFiles/rebuild_cache.dir

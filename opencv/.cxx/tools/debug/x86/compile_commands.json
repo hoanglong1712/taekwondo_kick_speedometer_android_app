@@ -1,0 +1,7 @@
+[
+{
+  "directory": "D:/work/android/taekwondo_kick_speedometer_android_app/opencv/.cxx/Debug/5q49zl6z/x86",
+  "command": "D:\\Program\\android-studio-panda4-windows\\sdk\\ndk\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=i686-none-linux-android21 --sysroot=D:/Program/android-studio-panda4-windows/sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -mstackrealign -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fno-limit-debug-info  -fPIC -o CMakeFiles\\opencv_jni_shared.dir\\dummy.cpp.o -c D:\\work\\android\\taekwondo_kick_speedometer_android_app\\opencv\\libcxx_helper\\dummy.cpp",
+  "file": "D:\\work\\android\\taekwondo_kick_speedometer_android_app\\opencv\\libcxx_helper\\dummy.cpp"
+}
+]
