@@ -21,9 +21,11 @@ class ImpactAnalyzer(
     private var customHigh: Scalar? = null
     
     private var lastCentroid: Point? = null
+    private var smoothedCentroid: Point? = null
     var motionThreshold = 50.0 // Cần tinh chỉnh thực tế
+    var alpha = 0.3 // Hệ số làm mượt (0.1 - 0.5) cho Anti-Vibration
     
-    private var roiRect: Rect? = null // Region of Interest
+    private val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(5.0, 5.0))
 
     
     // Dải màu HSV cho Đỏ (Red có 2 dải trong HSV)
@@ -49,11 +51,16 @@ class ImpactAnalyzer(
             return
         }
 
-        // 1. Chuyển sang HSV
-        val hsv = Mat()
-        Imgproc.cvtColor(mat, hsv, Imgproc.COLOR_RGB2HSV)
+        // --- CHỐNG NHIỄU (Noise Reduction) ---
+        // 1. Làm mờ nhẹ để giảm nhiễu hạt (Sensor Noise)
+        val blurred = Mat()
+        Imgproc.GaussianBlur(mat, blurred, Size(5.0, 5.0), 0.0)
 
-        // 2. Lọc màu (Thresholding)
+        // 2. Chuyển sang HSV
+        val hsv = Mat()
+        Imgproc.cvtColor(blurred, hsv, Imgproc.COLOR_RGB2HSV)
+
+        // 3. Lọc màu (Thresholding)
         val mask = Mat()
         if (customLow != null && customHigh != null) {
             Core.inRange(hsv, customLow!!, customHigh!!, mask)
@@ -69,8 +76,12 @@ class ImpactAnalyzer(
             Core.inRange(hsv, blueLow, blueHigh, mask)
         }
 
+        // --- HẬU XỬ LÝ CHỐNG NHIỄU (Morphological Operations) ---
+        // Loại bỏ các đốm nhỏ và lấp đầy lỗ trống
+        Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_OPEN, kernel)
+        Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_CLOSE, kernel)
 
-        // 3. Tìm Contour lớn nhất
+        // 4. Tìm Contour lớn nhất
         val contours = mutableListOf<MatOfPoint>()
         val hierarchy = Mat()
         Imgproc.findContours(mask, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
@@ -86,8 +97,8 @@ class ImpactAnalyzer(
             }
         }
 
-        // 4. Kiểm tra rung lắc (Impact Detection)
-        if (largestContour != null && maxArea > 500) { // Bỏ qua vùng quá nhỏ (nhiễu)
+        // 5. Kiểm tra rung lắc (Impact Detection)
+        if (largestContour != null && maxArea > 1000) { // Tăng ngưỡng diện tích để lọc nhiễu tốt hơn
             val rect = Imgproc.boundingRect(largestContour)
             val width = mat.cols().toFloat()
             val height = mat.rows().toFloat()
@@ -107,25 +118,40 @@ class ImpactAnalyzer(
                 val cy = moments._m01 / moments._m00
                 val currentCentroid = Point(cx, cy)
 
+                // --- CHỐNG RUNG (Anti-Vibration / Smoothing) ---
+                // Sử dụng Exponential Moving Average (EMA) để làm mượt vị trí tâm
+                if (smoothedCentroid == null) {
+                    smoothedCentroid = currentCentroid
+                } else {
+                    smoothedCentroid = Point(
+                        alpha * currentCentroid.x + (1 - alpha) * smoothedCentroid!!.x,
+                        alpha * currentCentroid.y + (1 - alpha) * smoothedCentroid!!.y
+                    )
+                }
+
                 if (lastCentroid != null) {
-                    val distance = calculateDistance(currentCentroid, lastCentroid!!)
+                    // Tính khoảng cách di chuyển của tâm đã làm mượt
+                    val distance = calculateDistance(smoothedCentroid!!, lastCentroid!!)
                     
                     // Nếu di chuyển đột ngột vượt ngưỡng -> Va chạm!
                     if (distance > motionThreshold) {
                         Log.d("ImpactAnalyzer", "Impact Detected! Distance: $distance")
                         onImpactDetected()
-                        isMonitoring = false // Dừng monitor sau khi detect
+                        isMonitoring = false 
+                        smoothedCentroid = null // Reset sau khi detect
                     }
                 }
-                lastCentroid = currentCentroid
+                lastCentroid = smoothedCentroid
             }
         } else {
             onBoundingBoxUpdate(null)
             lastCentroid = null
+            smoothedCentroid = null
         }
 
         // Giải phóng bộ nhớ
         mat.release()
+        blurred.release()
         hsv.release()
         mask.release()
         hierarchy.release()
@@ -139,12 +165,11 @@ class ImpactAnalyzer(
     private fun Double.pow(exp: Double): Double = Math.pow(this, exp)
 
     fun setCustomColor(h: Double, s: Double, v: Double) {
-        // Tạo dải màu quanh điểm được chọn (+/- 10 cho H, +/- 50 cho S, V)
         val hLow = if (h - 10 < 0) 0.0 else h - 10
         val hHigh = if (h + 10 > 180) 180.0 else h + 10
-        val sLow = if (s - 50 < 50) 50.0 else s - 50
+        val sLow = if (s - 60 < 60) 60.0 else s - 60 // Chặt chẽ hơn để giảm nhiễu
         val sHigh = 255.0
-        val vLow = if (v - 50 < 50) 50.0 else v - 50
+        val vLow = if (v - 60 < 60) 60.0 else v - 60
         val vHigh = 255.0
         
         customLow = Scalar(hLow, sLow, vLow)
@@ -167,7 +192,6 @@ class ImpactAnalyzer(
         val mat = Mat()
         Utils.bitmapToMat(bitmap, mat)
         
-        // OpenCV bitmapToMat trả về RGBA, ta cần RGB cho Imgproc.COLOR_RGB2HSV
         val rgb = Mat()
         Imgproc.cvtColor(mat, rgb, Imgproc.COLOR_RGBA2RGB)
         mat.release()

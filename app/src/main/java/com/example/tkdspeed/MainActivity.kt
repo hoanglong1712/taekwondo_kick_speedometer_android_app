@@ -139,6 +139,17 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        viewBinding.seekBarStability.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                viewBinding.tvStability.text = "Stability (Anti-Vibration): $progress%"
+                val alpha = (100 - progress).coerceAtLeast(5) / 100.0
+                impactAnalyzer?.alpha = alpha
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
 
@@ -235,6 +246,7 @@ class MainActivity : AppCompatActivity() {
             )
             impactAnalyzer?.targetColor = targetColor
             impactAnalyzer?.motionThreshold = viewBinding.seekBarThreshold.progress.toDouble()
+            impactAnalyzer?.alpha = (100 - viewBinding.seekBarStability.progress).coerceAtLeast(5) / 100.0
 
             val rotation = viewBinding.viewFinder.display?.rotation ?: android.view.Surface.ROTATION_0
             val imageAnalyzer = ImageAnalysis.Builder()
